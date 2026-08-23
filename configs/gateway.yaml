@@ -1,0 +1,19 @@
+gateway:
+  default_timeout_ms: 3000
+
+servers:
+  - id: demo-http
+    enabled: true
+    required: true
+    transport: streamable_http
+    endpoint: http://127.0.0.1:8000/mcp
+
+  - id: demo-stdio
+    enabled: true
+    required: false
+    transport: stdio
+    command: .venv/Scripts/python.exe
+    args:
+      - demo_servers/demo_mcp.py
+      - --transport
+      - stdio

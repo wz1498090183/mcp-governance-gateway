@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# 虚拟环境
+.venv/
+
+# 项目本地指令（不提交）
+CLAUDE.md
