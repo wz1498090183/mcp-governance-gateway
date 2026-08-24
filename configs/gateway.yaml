@@ -17,3 +17,29 @@ servers:
       - demo_servers/demo_mcp.py
       - --transport
       - stdio
+
+auth:
+  jwt:
+    algorithm: HS256
+    issuer: mcp-gateway-dev
+    audience: mcp-gateway
+    secret_env: JWT_SECRET
+
+policies:
+  - tenant: tenant-a
+    role: analyst
+    server: demo-http
+    tool: echo
+    actions: [discover, call]
+
+  - tenant: tenant-a
+    role: analyst
+    server: demo-http
+    tool: sleep
+    actions: [discover, call]
+
+  - tenant: tenant-a
+    role: analyst
+    server: demo-stdio
+    tool: echo
+    actions: [discover, call]

@@ -41,11 +41,44 @@ class ServerConfig(BaseModel):
         return self
 
 
+class JWTSettings(BaseModel):
+    """JWT 校验配置（开发环境 HS256）。
+
+    secret_env 只保存环境变量名，密钥本身从环境变量读取，禁止硬编码进配置文件。
+    """
+
+    algorithm: Literal["HS256"] = "HS256"
+    issuer: str
+    audience: str
+    secret_env: str = "JWT_SECRET"
+
+
+class ToolPolicyRule(BaseModel):
+    """工具权限策略规则：tenant + role + server + tool 四维定位，actions 声明允许的动作。
+
+    无通配符、无 Deny、无权限继承，未命中的角色默认拒绝。
+    """
+
+    tenant: str
+    role: str
+    server: str
+    tool: str
+    actions: list[Literal["discover", "call"]]
+
+
+class AuthSettings(BaseModel):
+    """认证配置。"""
+
+    jwt: JWTSettings
+
+
 class GatewayConfig(BaseModel):
-    """网关配置根结构。"""
+    """网关配置根结构：auth 与 policies 均为顶层治理配置。"""
 
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     servers: list[ServerConfig] = Field(default_factory=list)
+    auth: AuthSettings | None = None
+    policies: list[ToolPolicyRule] = Field(default_factory=list)
 
 
 def load_config(path: str | Path) -> GatewayConfig:
