@@ -1,5 +1,9 @@
 gateway:
   default_timeout_ms: 3000
+  redis_failure_mode: fail_open
+
+redis:
+  url_env: REDIS_URL
 
 servers:
   - id: demo-http
@@ -43,3 +47,20 @@ policies:
     server: demo-stdio
     tool: echo
     actions: [discover, call]
+
+tool_governance:
+  - server: demo-http
+    tool: sleep
+    timeout_ms: 300
+    rate_limit:
+      enabled: false
+      window_seconds: 60
+      requests: 10
+
+  - server: demo-http
+    tool: echo
+    timeout_ms: 1000
+    rate_limit:
+      enabled: false
+      window_seconds: 60
+      requests: 3

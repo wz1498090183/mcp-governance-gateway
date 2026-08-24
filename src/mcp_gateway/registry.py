@@ -10,9 +10,10 @@ import logging
 from typing import Any
 
 from mcp import types
+from mcp.shared.exceptions import MCPError
 
 from mcp_gateway.config import GatewayConfig
-from mcp_gateway.errors import AdapterUnavailableError, ServerNotFoundError, ToolNotFoundError
+from mcp_gateway.errors import AdapterUnavailableError, ServerNotFoundError, ToolNotFoundError, ToolTimeoutError
 from mcp_gateway.schemas import ToolInfo
 from mcp_gateway.transports import MCPTransportAdapter, create_adapter
 
@@ -85,7 +86,13 @@ class MCPRegistry:
                 )
         return result
 
-    async def call_tool(self, server_id: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def call_tool(
+        self,
+        server_id: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
         """调用指定服务器的工具，透传参数并返回原始结果。"""
         if server_id not in self._adapters:
             raise ServerNotFoundError(f"服务器不存在: {server_id}")
@@ -96,9 +103,15 @@ class MCPRegistry:
             tools = self._tools.get(server_id, {})
             if tool_name not in tools:
                 raise ToolNotFoundError(f"工具不存在: {server_id}/{tool_name}")
-            result = await self._adapters[server_id].call_tool(tool_name, arguments)
+            result = await self._adapters[server_id].call_tool(tool_name, arguments, timeout_seconds)
         except (ServerNotFoundError, ToolNotFoundError):
             raise
+        except MCPError as exc:
+            # 工具调用超时：SDK 把读超时转为 REQUEST_TIMEOUT，适配器 worker 已关闭连接
+            if exc.code == types.REQUEST_TIMEOUT:
+                raise ToolTimeoutError() from exc
+            logger.warning("调用工具失败 %s/%s: %s", server_id, tool_name, exc)
+            raise AdapterUnavailableError(f"调用失败: {server_id}/{tool_name}") from exc
         except Exception as exc:
             logger.warning("调用工具失败 %s/%s: %s", server_id, tool_name, exc)
             raise AdapterUnavailableError(f"调用失败: {server_id}/{tool_name}") from exc

@@ -61,9 +61,11 @@ def _make_security(policies: list[ToolPolicyRule]) -> Security:
 def make_auth_client(
     tool_names: list[str] | None = None,
     policies: list[ToolPolicyRule] | None = None,
+    governance=None,
+    fail_timeout: bool = False,
 ) -> TestClient:
-    """构建注入 FakeAdapter 与 Security 的测试客户端。"""
+    """构建注入 FakeAdapter、Security 与 Governance 的测试客户端。"""
     names = tool_names if tool_names is not None else ["echo", "sleep"]
     rules = policies if policies is not None else DEFAULT_POLICIES
-    registry = MCPRegistry(adapters={"demo": FakeAdapter("demo", names)})
-    return TestClient(create_app(registry, _make_security(rules)))
+    registry = MCPRegistry(adapters={"demo": FakeAdapter("demo", names, fail_timeout=fail_timeout)})
+    return TestClient(create_app(registry, _make_security(rules), governance))

@@ -6,15 +6,24 @@ from __future__ import annotations
 from typing import Any
 
 from mcp import types
+from mcp.shared.exceptions import MCPError
+from mcp.types import REQUEST_TIMEOUT
 
 
 class FakeAdapter:
     """内存中的假适配器，用于 API 单元测试，不启动真实 MCP 服务器。"""
 
-    def __init__(self, server_id: str, tool_names: list[str], fail_calls: bool = False) -> None:
+    def __init__(
+        self,
+        server_id: str,
+        tool_names: list[str],
+        fail_calls: bool = False,
+        fail_timeout: bool = False,
+    ) -> None:
         self._server_id = server_id
         self._tool_names = tool_names
         self._fail_calls = fail_calls
+        self._fail_timeout = fail_timeout
         self.initialized = False
         self.closed = False
 
@@ -35,7 +44,9 @@ class FakeAdapter:
             for name in self._tool_names
         ]
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> types.CallToolResult:
+    async def call_tool(self, name: str, arguments: dict[str, Any], timeout_seconds: float | None = None) -> types.CallToolResult:
+        if self._fail_timeout:
+            raise MCPError(code=REQUEST_TIMEOUT, message="Request 'tools/call' timed out")
         if self._fail_calls:
             raise RuntimeError("fake 传输错误")
         text = arguments.get("text", "")

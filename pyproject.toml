@@ -1,7 +1,7 @@
 [project]
 name = "mcp-gateway"
 version = "0.1.0"
-description = "MCP 治理网关（阶段二：JWT 鉴权与工具级权限）"
+description = "MCP 治理网关（阶段三：限流、超时与审计）"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.141,<1",
@@ -10,12 +10,14 @@ dependencies = [
     "pyyaml>=6.0,<7",
     "pydantic>=2.13,<3",
     "pyjwt>=2.13,<3",
+    "redis>=8,<9",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.1,<10",
     "httpx>=0.28,<1",
+    "fakeredis>=2,<3",
 ]
 
 [build-system]

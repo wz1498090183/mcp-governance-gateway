@@ -33,8 +33,8 @@ class MCPTransportAdapter(Protocol):
         """列出服务器提供的工具元数据。"""
         ...
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> types.CallToolResult:
-        """调用指定工具并返回原始结果。"""
+    async def call_tool(self, name: str, arguments: dict[str, Any], timeout_seconds: float | None = None) -> types.CallToolResult:
+        """调用指定工具并返回原始结果。timeout_seconds 为逐调用读超时。"""
         ...
 
     async def close(self) -> None:
@@ -86,8 +86,8 @@ class _BaseAdapter(MCPTransportAdapter):
     async def list_tools(self) -> list[types.Tool]:
         return await self._submit("list_tools")
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> types.CallToolResult:
-        return await self._submit("call_tool", name, arguments)
+    async def call_tool(self, name: str, arguments: dict[str, Any], timeout_seconds: float | None = None) -> types.CallToolResult:
+        return await self._submit("call_tool", name, arguments, timeout_seconds)
 
     async def close(self) -> None:
         await self._submit("shutdown")
@@ -116,7 +116,8 @@ class _BaseAdapter(MCPTransportAdapter):
                     future.set_result(result.tools)
                 elif cmd == "call_tool":
                     await self._ensure_open()
-                    result = await self._session.call_tool(*args)
+                    name, arguments, timeout_seconds = args
+                    result = await self._session.call_tool(name, arguments, read_timeout_seconds=timeout_seconds)
                     future.set_result(result)
             except BaseException as exc:
                 # 调用失败标记连接失效，下次调用前由 _ensure_open 自动重建
