@@ -48,14 +48,19 @@ class MCPRegistry:
         return cls(adapters, required)
 
     async def initialize(self) -> None:
-        """统一初始化所有适配器并缓存工具元数据。"""
+        """统一初始化所有适配器并缓存工具元数据。
+
+        任一服务器初始化失败仅记录日志并关闭该适配器，不再抛出——进程保持存活，
+        业务可用性由 readiness() / /ready 端点反映（required 服务器失败时返回 503）。
+        """
         for server_id in self._adapters:
             try:
                 await self._init_one(server_id)
             except Exception as exc:
-                if self._required.get(server_id, False):
-                    raise
-                logger.warning("服务器 %s 初始化失败，已跳过: %s", server_id, exc)
+                logger.warning(
+                    "服务器 %s 初始化失败（required=%s）: %s",
+                    server_id, self._required.get(server_id, False), exc,
+                )
                 await self._adapters[server_id].close()
 
     async def _init_one(self, server_id: str) -> None:
@@ -64,6 +69,16 @@ class MCPRegistry:
         await adapter.initialize()
         tools = await adapter.list_tools()
         self._tools[server_id] = {tool.name: tool for tool in tools}
+
+    def readiness(self) -> dict[str, dict[str, bool]]:
+        """返回每个服务器的就绪状态（required 标志 + 是否已缓存工具），供 /ready 使用。"""
+        return {
+            server_id: {
+                "required": self._required.get(server_id, False),
+                "ready": server_id in self._tools,
+            }
+            for server_id in self._adapters
+        }
 
     async def close(self) -> None:
         """逐个关闭适配器。"""

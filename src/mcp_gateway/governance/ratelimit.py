@@ -8,6 +8,7 @@ Redis 故障时按全局 failure_mode：fail_open 放行，fail_closed 返回 50
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -22,6 +23,22 @@ class RateLimiter:
     def __init__(self, client, failure_mode: str) -> None:
         self._client = client
         self._failure_mode = failure_mode
+
+    @property
+    def failure_mode(self) -> str:
+        """暴露 failure_mode，供就绪探针判断 Redis 是否阻塞就绪。"""
+        return self._failure_mode
+
+    async def ping(self) -> bool:
+        """就绪探测：fail_open 恒 True；fail_closed 实际 ping Redis（带 1s 超时）。"""
+        if self._failure_mode != "fail_closed":
+            return True
+        try:
+            await asyncio.wait_for(self._client.ping(), timeout=1.0)
+            return True
+        except Exception:
+            logger.warning("Redis 不可用（fail_closed 模式）")
+            return False
 
     async def check(self, tenant: str, server: str, tool: str, window_seconds: int, requests: int) -> None:
         """对一次工具调用执行限流判定，超限抛 429。"""

@@ -50,6 +50,18 @@ class Governance:
             return rule.timeout_ms
         return self._default_timeout_ms
 
+    def rate_limit_failure_mode(self) -> str | None:
+        """返回限流后端 failure_mode；未启用限流时返回 None（供就绪探针使用）。"""
+        if self._rate_limiter is None:
+            return None
+        return self._rate_limiter.failure_mode
+
+    async def redis_ready(self) -> bool:
+        """Redis 就绪探测：未启用限流或 fail_open 恒 True，fail_closed 实际 ping。"""
+        if self._rate_limiter is None:
+            return True
+        return await self._rate_limiter.ping()
+
     async def check_rate_limit(self, tenant: str, server: str, tool: str) -> None:
         """执行限流；工具未配置限流规则时跳过。"""
         if self._rate_limiter is None:

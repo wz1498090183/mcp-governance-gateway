@@ -79,3 +79,48 @@ curl -X POST http://127.0.0.1:9000/api/v1/tools/demo-http/echo/call \
 ```bash
 .venv/Scripts/python.exe -m pytest tests/ -v
 ```
+
+## 容器化部署与一键演示（v0.1）
+
+使用 Docker Compose 编排 `gateway` / `redis` / `demo-http` 三个服务，通过 `scripts/demo.sh` 一键跑完 7 个治理场景断言。
+
+### 前置
+
+- 已安装 Docker 与 Docker Compose 插件。
+- 复制 `.env.example` 为 `.env` 并按需修改（`JWT_SECRET` 必填，`REDIS_URL` 默认容器内 `redis://redis:6379/0`）：
+
+```bash
+cp .env.example .env
+```
+
+### 常用命令（Makefile）
+
+```bash
+make up       # docker compose up -d --build
+make demo     # up 后运行 scripts/demo.sh，跑完整场景断言
+make down     # docker compose down
+make config   # docker compose config 校验
+make test     # 本机运行 pytest
+make logs     # 查看服务日志
+```
+
+> Windows 主机若未安装 `make`，可直接执行各目标对应的 `docker compose` / `bash scripts/demo.sh` 命令，效果一致。
+
+### 演示脚本覆盖
+
+| 场景 | 断言 |
+|---|---|
+| 列工具 | 200 |
+| 成功调用（demo-stdio/echo） | 200 |
+| 无 Token | 401 |
+| 无权限（guest） | 403 |
+| 触发限流（demo-http/echo，requests=1） | 429 |
+| 调用超时（demo-http/sleep 5s，timeout 1000ms） | 504 |
+| 超时后恢复（demo-http/sleep 0.1s） | 200 |
+
+全部通过后输出：`All MCP Governance Gateway demo scenarios passed.`
+
+### 运维端点
+
+- `GET /health`：存活探针，进程存活即 200。
+- `GET /ready`：就绪探针，所有 `required` MCP 服务器初始化成功且 Redis 不阻塞时 200，否则 503。

@@ -3,7 +3,7 @@
 
 启动方式：
     python demo_servers/demo_mcp.py --transport stdio
-    python demo_servers/demo_mcp.py --transport streamable-http
+    python demo_servers/demo_mcp.py --transport streamable-http [--host 0.0.0.0 --port 8000]
 """
 
 import argparse
@@ -30,5 +30,10 @@ def sleep(seconds: float) -> str:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Demo MCP server")
     parser.add_argument("--transport", default="stdio", choices=["stdio", "streamable-http"])
+    parser.add_argument("--host", default="127.0.0.1", help="streamable-http 监听地址（默认 127.0.0.1）")
+    parser.add_argument("--port", type=int, default=8000, help="streamable-http 监听端口（默认 8000）")
     args = parser.parse_args()
-    mcp.run(transport=args.transport)
+    if args.transport == "streamable-http":
+        mcp.run(transport=args.transport, host=args.host, port=args.port)
+    else:
+        mcp.run(transport=args.transport)

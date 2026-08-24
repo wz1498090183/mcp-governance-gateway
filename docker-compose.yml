@@ -1,0 +1,50 @@
+# MCP Governance Gateway 编排：gateway / redis / demo-http
+# 密钥（JWT_SECRET / REDIS_URL）从 .env 注入，配置文件路径固定指向 demo 配置。
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  demo-http:
+    build: .
+    image: mcp-gateway-demo:local
+    # 绑定 0.0.0.0 供 gateway 容器跨容器访问
+    command: ["python", "demo_servers/demo_mcp.py", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      # python:3.12-slim 无 nc；Streamable HTTP 端点无普通 /health，改用端口探测
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 3).close()"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  gateway:
+    build: .
+    image: mcp-gateway-demo:local
+    depends_on:
+      redis:
+        condition: service_healthy
+      demo-http:
+        condition: service_healthy
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: ${REDIS_URL}
+      # 显式指向容器专用 demo 配置（与 main.py 读取的环境变量名一致）
+      GATEWAY_CONFIG_PATH: /app/configs/gateway.demo.yaml
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s

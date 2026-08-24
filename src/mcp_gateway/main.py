@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await registry.initialize()
+        app.state.registry = registry
         app.state.service = GatewayService(registry, security, governance)
         app.state.security = security
         app.state.governance = governance
@@ -76,6 +78,39 @@ def create_app(
             headers=exc.headers,
         )
 
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        """存活探针：进程存活即返回 200。"""
+        return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready(request: Request) -> JSONResponse:
+        """就绪探针：区分进程存活与业务可用。
+
+        所有 required 服务器初始化成功且 Redis 不阻塞（仅 fail_closed 且启用限流时
+        可能阻塞）时返回 200，否则返回 503；optional 服务器状态在 body 中标注。
+        """
+        registry: MCPRegistry = request.app.state.registry
+        servers = registry.readiness()
+        required_ready = all(info["ready"] for info in servers.values() if info["required"])
+
+        governance: Governance | None = request.app.state.governance
+        redis_ready = True
+        redis_failure_mode = None
+        if governance is not None:
+            redis_failure_mode = governance.rate_limit_failure_mode()
+            redis_ready = await governance.redis_ready()
+
+        is_ready = required_ready and redis_ready
+        return JSONResponse(
+            status_code=200 if is_ready else 503,
+            content={
+                "status": "ready" if is_ready else "not_ready",
+                "servers": servers,
+                "redis": {"failure_mode": redis_failure_mode, "ready": redis_ready},
+            },
+        )
+
     @app.get("/api/v1/tools")
     async def list_tools(
         request: Request,
@@ -99,8 +134,12 @@ def create_app(
 
 
 def build_default_app() -> FastAPI:
-    """从默认配置文件构建应用（供 uvicorn --factory 或 python -m 使用）。"""
-    config = load_config(DEFAULT_CONFIG_PATH)
+    """从默认配置文件构建应用（供 uvicorn --factory 或 python -m 使用）。
+
+    配置文件路径可通过环境变量 GATEWAY_CONFIG_PATH 覆盖（容器内固定指向 demo 配置）。
+    """
+    config_path = os.environ.get("GATEWAY_CONFIG_PATH") or DEFAULT_CONFIG_PATH
+    config = load_config(config_path)
     registry = MCPRegistry.from_config(config)
     security = Security.from_config(config)
     governance = Governance.from_config(config)

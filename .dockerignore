@@ -1,0 +1,24 @@
+# 版本控制
+.git
+.gitignore
+
+# 虚拟环境与缓存（体积最大，务必排除）
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.egg-info
+build
+dist
+
+# 测试与探针（运行非必需）
+tests
+spike
+
+# 本地配置与密钥（严禁打入镜像）
+.env
+CLAUDE.md
+
+# 文档
+docs
+*.md

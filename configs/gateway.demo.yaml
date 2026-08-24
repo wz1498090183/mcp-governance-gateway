@@ -1,0 +1,72 @@
+# 容器专用演示配置：本地开发配置见 gateway.yaml（限流关闭）。
+# 与 gateway.yaml 的差异：
+#   - demo-http 使用容器网络地址 http://demo-http:8000/mcp
+#   - demo-stdio 使用容器内绝对路径（python + 脚本）
+#   - demo-http/echo 开启限流（requests:1，便于一键触发 429）
+#   - demo-http/sleep 超时 1000ms（sleep 5s 触发 504，sleep 0.1s 用于恢复）
+gateway:
+  default_timeout_ms: 3000
+  redis_failure_mode: fail_open
+
+redis:
+  url_env: REDIS_URL
+
+servers:
+  - id: demo-http
+    enabled: true
+    required: true
+    transport: streamable_http
+    endpoint: http://demo-http:8000/mcp
+
+  - id: demo-stdio
+    enabled: true
+    required: false
+    transport: stdio
+    command: /usr/local/bin/python
+    args:
+      - /app/demo_servers/demo_mcp.py
+      - --transport
+      - stdio
+
+auth:
+  jwt:
+    algorithm: HS256
+    issuer: mcp-gateway-dev
+    audience: mcp-gateway
+    secret_env: JWT_SECRET
+
+policies:
+  - tenant: tenant-a
+    role: analyst
+    server: demo-http
+    tool: echo
+    actions: [discover, call]
+
+  - tenant: tenant-a
+    role: analyst
+    server: demo-http
+    tool: sleep
+    actions: [discover, call]
+
+  - tenant: tenant-a
+    role: analyst
+    server: demo-stdio
+    tool: echo
+    actions: [discover, call]
+
+tool_governance:
+  - server: demo-http
+    tool: sleep
+    timeout_ms: 1000
+    rate_limit:
+      enabled: false
+      window_seconds: 60
+      requests: 10
+
+  - server: demo-http
+    tool: echo
+    timeout_ms: 1000
+    rate_limit:
+      enabled: true
+      window_seconds: 60
+      requests: 1

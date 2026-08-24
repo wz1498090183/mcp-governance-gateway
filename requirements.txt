@@ -1,0 +1,9 @@
+# 容器运行时依赖（与 pyproject.toml 的 [project].dependencies 对齐，锁定精确版本）
+# 版本取自 spike 阶段验证通过的 .venv 依赖集，保证容器内行为与本地一致
+fastapi==0.141.1
+uvicorn==0.52.4
+mcp==2.0.0
+PyYAML==6.0.3
+pydantic==2.13.4
+PyJWT==2.13.0
+redis==8.1.0
