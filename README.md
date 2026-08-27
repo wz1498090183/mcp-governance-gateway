@@ -1,4 +1,4 @@
-# MCP Gateway（阶段三：限流、超时与审计）
+# MCP Gateway
 
 把多个 MCP 服务器（streamable_http / stdio）聚合为统一 REST API，叠加 JWT 认证、工具级权限、固定窗口限流、工具超时与结构化审计日志。
 
